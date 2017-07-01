@@ -1,16 +1,17 @@
-﻿ 
+﻿
 // Copyright (c) 2011 by Christopher Weber
- 
+// Portions Copyright (c) 2017 by Robert Mooney
+
 // Permission is hereby granted, free of charge, to any person obtaining a copy  
 // of this software and associated documentation files (the "Software"), to deal 
 // in the Software without restriction, including without limitation the rights  
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell  
 // copies of the Software, and to permit persons to whom the Software is  
 // furnished to do so, subject to the following conditions: 
- 
+
 // The above copyright notice and this permission notice shall be included in     
 // all copies or substantial portions of the Software. 
- 
+
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR  
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,  
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE  
@@ -18,29 +19,23 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
 // SOFTWARE. 
-  
+
 // Authors: 
 // Christopher Weber (chris@lookout.net)
+// Robert Mooney (rjmooney@gmail.com)
 
 
 using System;
-using System.IO;
+using System.Collections.Generic;
+using System.Text;
 
 namespace UniHax
 {
     /// <summary>
-    /// The Fuzzer has cases for some of the oddball manifestations of Unicode that can trip up software including:
-    /// 
-    /// - non-character, reserved, and private use area code points
-    /// - special meaning characters such as the BOM and RLO
-    /// - ill-formed byte sequences
-    /// - a half-surrogate code point
-    /// 
-    /// 
+    /// An enumeration-style container of hostile code points.
     /// </summary>
-    public class Fuzzer
+    public static class HostileCodePoint
     {
-
         /// <summary>
         /// The Byte Order Mark U+FEFF is a special character defining the byte order and endianess
         /// of text data.
@@ -137,6 +132,52 @@ namespace UniHax
         public static readonly string u1D160 = char.ConvertFromUtf32(0x1D160);
 
         /// <summary>
+        /// This is a collection of the code points defined above.
+        /// </summary>
+        /// <remarks>Remember to update this when adding new code points.</remarks>
+        private static readonly string[] _values = new string[]
+        {
+            HostileCodePoint.uBOM,
+            HostileCodePoint.uRLO,
+            HostileCodePoint.uMVS,
+            HostileCodePoint.uWordJoiner,
+            HostileCodePoint.uReservedCodePoint,
+            HostileCodePoint.uNotACharacter,
+            HostileCodePoint.uUnassigned,
+            HostileCodePoint.uDEAD,
+            HostileCodePoint.uDAAD,
+            HostileCodePoint.uPrivate,
+            HostileCodePoint.uFullwidthSolidus,
+            HostileCodePoint.uBoldEight,
+            HostileCodePoint.uIdnaSs,
+            HostileCodePoint.uFDFA,
+            HostileCodePoint.u0390,
+            HostileCodePoint.u1F82,
+            HostileCodePoint.uFB2C,
+            HostileCodePoint.u1D160
+        };
+
+        /// <summary>
+        /// Retrieves an array of the values of the constants in the HostileCodePoint enumeration.
+        /// </summary>
+        public static string[] GetValues()
+        {
+            return _values;
+        }
+    }
+
+    /// <summary>
+    /// The Fuzzer has cases for some of the oddball manifestations of Unicode that can trip up software including:
+    /// 
+    /// - non-character, reserved, and private use area code points
+    /// - special meaning characters such as the BOM and RLO
+    /// - ill-formed byte sequences
+    /// - a half-surrogate code point
+    /// </summary>
+    public class CodePointFuzzer
+    {
+        #region Public Methods
+        /// <summary>
         /// Gets the requested byte representation of the current Unicode character codepoint
         /// </summary>
         /// <param name="encoding">The encoding you want a byte representation in.  Specify utf-8, utf-16le, or utf16-be</param>
@@ -159,7 +200,6 @@ namespace UniHax
             }
 
             return enc.GetBytes(character);
-
         }
 
         /// <summary>
@@ -171,7 +211,7 @@ namespace UniHax
         public byte[] GetCharacterBytesMalformed(string encoding, string character)
         {
             System.Text.Encoding enc;
-            
+
             if (encoding == "utf-16le")
             {
                 enc = new System.Text.UnicodeEncoding();
@@ -209,7 +249,7 @@ namespace UniHax
 
         public string GetBom()
         {
-            return Fuzzer.uBOM;
+            return HostileCodePoint.uBOM;
         }
 
         /// <summary>
@@ -220,8 +260,43 @@ namespace UniHax
         /// <returns>A raw byte array because .NET will not allow illegal code points in the System.String class.</returns>
         public byte[] OutOfRangeCodePointAsUtf32BE()
         {
-            byte[] bytes = {0x00, 0x1F, 0xFF, 0xFF};
+            byte[] bytes = { 0x00, 0x1F, 0xFF, 0xFF };
             return bytes;
         }
+        #endregion
+
+        #region Static Methods
+        /// <summary>
+        /// Perform hostile code point substitution on each character in the specified string.
+        /// </summary>
+        /// <param name="source">The string on which to perform the substitution</param>
+        /// <returns>The next string in the sequence of strings with the next character replaced with a hostile code point</returns>
+        public static IEnumerable<string> Substitute(string source)
+        {
+            var lastCodePointLength = 0;
+            var target = new StringBuilder(source);
+            for (int n = 0; n < source.Length; ++n)
+            {
+                foreach (var codepoint in HostileCodePoint.GetValues())
+                {
+                    if (n > 0 && lastCodePointLength > 0)
+                    {
+                        // Remove the last hostile code point replacement and re-insert the original character
+                        target.Remove(n - 1, lastCodePointLength);
+                        target.Insert(n - 1, source[n - 1]);
+                    }
+
+                    // Replace the current character of the source with the current code point string
+                    target.Remove(n, 1);
+                    target.Insert(n, codepoint);
+
+                    // Store the length of the code point for the next iteration, when it is removed
+                    lastCodePointLength = codepoint.Length;
+
+                    yield return target.ToString();
+                }
+            }
+        }
+        #endregion
     }
 }

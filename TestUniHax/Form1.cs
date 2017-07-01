@@ -55,7 +55,7 @@ namespace TestUniMap
             comboBoxTransformations.DisplayMember = "Transform";
 
             // Populate unichar properties
-            string[] aProps = { Fuzzer.uBOM, Fuzzer.uMVS, Fuzzer.uReservedCodePoint, Fuzzer.uRLO, Fuzzer.uDEAD,  Fuzzer.uDAAD, Fuzzer.uPrivate, Fuzzer.uNotACharacter };
+            string[] aProps = { HostileCodePoint.uBOM, HostileCodePoint.uMVS, HostileCodePoint.uReservedCodePoint, HostileCodePoint.uRLO, HostileCodePoint.uDEAD,  HostileCodePoint.uDAAD, HostileCodePoint.uPrivate, HostileCodePoint.uNotACharacter };
             string sProps = String.Join("\r\n", aProps);
             textBoxUnicharProps.Text = sProps;
         }
