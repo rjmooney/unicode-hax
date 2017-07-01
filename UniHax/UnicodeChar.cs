@@ -76,11 +76,11 @@ namespace UniHax
             {
                 i = Convert.ToInt32(CodePoint.Trim(), 16); // 0x00 to 0x10ffff
             }
-            catch (FormatException e)
+            catch (FormatException)
             {
                 i = 0;
             }
-            catch(Exception)
+            catch (Exception)
             {
                 throw;
             }
@@ -107,11 +107,11 @@ namespace UniHax
             {
                 i = Convert.ToInt32(codepoint.Trim(), 16); // 0x00 to 0x10ffff
             }
-            catch (FormatException e)
+            catch (FormatException)
             {
                 i = 0;
             }
-            catch(ArgumentOutOfRangeException e)
+            catch (ArgumentOutOfRangeException)
             {
                 i = 0;
             }
